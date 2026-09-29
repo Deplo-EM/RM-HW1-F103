@@ -1,0 +1,18 @@
+# ---- build output (never commit) ----
+build/
+Debug/
+Release/
+*.elf
+*.hex
+*.bin
+*.map
+*.o
+*.d
+*.su
+
+# ---- editor / OS junk ----
+.vs/
+.vscode/ipch/
+Thumbs.db
+desktop.ini
+*.tmp
