@@ -1,0 +1,27 @@
+// ============================================================================
+//  HW1 烧录脚本（J-Link Commander 用的命令清单）
+//  ---------------------------------------------------------------------------
+//  用法（在本机 PowerShell 或 VS Code 终端里执行）：
+//
+//    & 'C:\Program Files\SEGGER\JLink_V980\JLink.exe' -NoGui 1 `
+//      -CommanderScript 'D:\ForTest\HW1\tools\jlink_flash.jlink'
+//
+//  每一行在做什么：
+//    si SWD                     选 SWD 接口（两线调试，F103 上就是 PA13/PA14）
+//    speed 1000                 通信速度 1000 kHz
+//    device STM32F103C8         告诉 J-Link 目标芯片型号（决定 Flash 算法）
+//    connect                    连接芯片（认到 Cortex-M3 才算成功）
+//    loadfile ...HW1.elf        把固件烧进去（J-Link 会自动擦除用到的扇区）
+//    r                          复位芯片
+//    go                         让芯片开始运行
+//    q                          退出
+// ============================================================================
+
+si SWD
+speed 1000
+device STM32F103C8
+connect
+loadfile D:\ForTest\HW1\build\HW1.elf
+r
+go
+q

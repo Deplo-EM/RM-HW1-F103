@@ -1,0 +1,16 @@
+// ============================================================================
+//  jlink_test.jlink -- J-Link self test (no target board needed)
+//
+//  Purpose: check that Windows sees the J-Link, that the SEGGER software
+//  accepts it (clone check), and to read out its serial number / firmware.
+//
+//  How to run (from any folder):
+//    & 'C:\Program Files\SEGGER\JLink_V980\JLink.exe' -NoGui 1 -CommanderScript D:\ForTest\HW1\tools\jlink_test.jlink
+//
+//  If V9.80 refuses the clone, try the older V9.68 install instead:
+//    & 'C:\Program Files\SEGGER\JLink_V968\JLink.exe' -NoGui 1 -CommanderScript D:\ForTest\HW1\tools\jlink_test.jlink
+// ============================================================================
+
+ShowEmuList
+ShowHWStatus
+q
