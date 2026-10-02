@@ -82,6 +82,7 @@ void TasksInit(void)
            因为不启动定时器就没人喂狗，看门狗会在约 2 秒后把芯片复位 ——
            这正是第 1 题的预期现象。
     */
+    HAL_TIM_Base_Start_IT(&htim2);   /* 启动 TIM2 的更新中断 */
 }
 
 /* =====================================================================
@@ -99,7 +100,7 @@ void TasksInit(void)
        2. C++ 里必须加 extern "C"，否则函数名被改名，链接时找不到；
        3. 全工程只能有一份，两处都有 → 链接报 multiple definition。
 
-   ------- 第 2 题：从下面这行开始取消注释 -------
+   ------- 第 2 题：从下面这行开始取消注释 -------*/
 extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     // TODO(2-2) 先判断这次中断到底是不是 TIM2 发来的。
@@ -108,7 +109,11 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     //           为什么要判断：一个工程里可能有好几个定时器共用这一个回调，
     //                         不判断就会把别的定时器的中断也算进来。
     //           写法结构  ：if (htim->Instance == TIM2) { ... }
-
+    if(htim->Instance == TIM2)
+    {
+        tick++;  /* 让 tick 每进一次中断加 1 */
+        HAL_IWDG_Refresh(&hiwdg);  /* 喂狗，否则 2 秒后芯片复位 */
+    }
         // TODO(2-3) 让 tick 每进一次中断加 1。
         //           1 ms 进一次 → 1 秒应该加 1000 次（这就是第 2 题的证据）。
 
@@ -120,4 +125,4 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         //           预期现象：tick 涨到约 2000（2 秒）后芯片复位 →
         //                     tick 归零 → 再涨到 2000 → 再复位，循环往复。
 }
-   ------- 第 2 题需要取消注释的部分到此结束 ------- */
+   /*------- 第 2 题需要取消注释的部分到此结束 ------- */
