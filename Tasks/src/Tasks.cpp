@@ -112,7 +112,7 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if(htim->Instance == TIM2)
     {
         tick++;  /* 让 tick 每进一次中断加 1 */
-        HAL_IWDG_Refresh(&hiwdg);  /* 喂狗，否则 2 秒后芯片复位 */
+        //HAL_IWDG_Refresh(&hiwdg);  /* 喂狗，否则 2 秒后芯片复位 */ 
     }
         // TODO(2-3) 让 tick 每进一次中断加 1。
         //           1 ms 进一次 → 1 秒应该加 1000 次（这就是第 2 题的证据）。
