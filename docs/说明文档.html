@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>电控第一次作业 说明文档</title><style>
+@page { size: A4; margin: 18mm 16mm; }
+body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; font-size: 11pt;
+       line-height: 1.65; color: #222; max-width: 900px; margin: 0 auto; padding: 10px 22px; }
+h1 { font-size: 20pt; border-bottom: 2px solid #333; padding-bottom: 6px; }
+h2 { font-size: 15pt; margin-top: 24px; border-left: 5px solid #4a7ebb; padding-left: 8px; }
+h3 { font-size: 13pt; margin-top: 16px; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+th, td { border: 1px solid #999; padding: 5px 8px; text-align: left; vertical-align: top; }
+th { background: #eef3f9; }
+code { background: #f2f2f2; padding: 1px 4px; border-radius: 3px;
+       font-family: Consolas, "Courier New", monospace; font-size: 10pt; }
+pre { background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px;
+      padding: 9px 11px; overflow-x: auto; }
+pre code { background: none; padding: 0; font-size: 9.5pt; line-height: 1.5; }
+blockquote { border-left: 4px solid #ccc; margin: 8px 0; padding: 2px 12px;
+             color: #555; background: #fafafa; }
+img { max-width: 100%; border: 1px solid #ccc; margin: 6px 0; }
+li { margin: 3px 0; }
+hr { border: none; border-top: 1px solid #ddd; margin: 18px 0; }
+</style></head>
+<body>
+<h1>电控第一次作业 · 说明文档</h1>
+
+<table><thead><tr><th>项</th><th>内容</th></tr></thead><tbody>
+<tr><td>姓名</td><td>陈恩牧</td></tr>
+<tr><td>学号</td><td>3260100694</td></tr>
+<tr><td>日期</td><td>2026-10-04</td></tr>
+<tr><td>工程</td><td><code>HW1</code>（STM32F103C8T6 最小系统板 + 克隆 J-Link）</td></tr>
+<tr><td>仓库</td><td>https://github.com/Deplo-EM/RM-HW1-F103</td></tr>
+</tbody></table>
+
+<blockquote>说明：按老师要求，<strong>正文不放任何截图/照片，所有图片统一放在最后的附录</strong>，正文只写"见图 X"。</blockquote>
+
+<hr>
+
+<h2>0. 三题总览</h2>
+
+<table><thead><tr><th>题</th><th>做什么</th><th>预期现象</th><th>对应附录</th></tr></thead><tbody>
+<tr><td>第 1 题</td><td>PC13 输出低电平，点亮板载 LED</td><td>板载灯<strong>常亮</strong></td><td>图①</td></tr>
+<tr><td>第 2 题</td><td>TIM2 更新中断，周期 <strong>1 ms</strong>，中断里 <code>tick++</code> 并喂狗</td><td><code>tick</code> 每秒增加约 <strong>1000</strong></td><td>图②</td></tr>
+<tr><td>第 3 题</td><td>删掉喂狗，其余不动</td><td><code>tick</code> 涨到约 <strong>2000</strong> → 芯片复位 → <code>tick</code> 归零，反复</td><td>图③</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>1. 工程结构（为什么业务代码都在 <code>Tasks</code> 里）</h2>
+
+<table><thead><tr><th>目录/文件</th><th>谁生成的</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>Core/</code>、<code>Drivers/</code></td><td>CubeMX 生成</td><td>芯片启动、外设初始化、HAL 库</td></tr>
+<tr><td><strong><code>Tasks/inc</code>、<code>Tasks/src</code></strong></td><td><strong>我自己写</strong></td><td><strong>业务代码只在这里</strong>（<code>Tasks.h</code> / <code>Tasks.cpp</code>）</td></tr>
+<tr><td><code>CMakeLists.txt</code></td><td>老师发的模板</td><td><code>set(user_folders "Tasks")</code>，只把 <code>Tasks</code> 目录当作"用户代码"</td></tr>
+<tr><td><code>main.c</code></td><td>CubeMX 生成</td><td><strong>只在 <code>USER CODE</code> 区域改动</strong>：包含 <code>Tasks.h</code>、调用 <code>TasksInit()</code>，<code>while (1)</code> 保持为空</td></tr>
+</tbody></table>
+
+<p><strong>为什么要把业务代码隔离在 <code>Tasks</code> 里</strong>：</p>
+<p>CubeMX 重新生成代码时，<code>Core/</code> 与 <code>Drivers/</code> 里的内容会被覆盖，而 <code>USER CODE BEGIN/END</code> 之间的内容会被保留。把业务代码放进独立的 <code>Tasks</code> 目录并由老师模板单独编译，就不怕重新生成时把代码冲掉，也方便老师只看一个文件夹就能看懂我写了什么。</p>
+
+<hr>
+
+<h2>2. 第 1 题：GPIO 点亮板载 LED</h2>
+
+<h3>2.1 CubeMX 配置</h3>
+
+<table><thead><tr><th>项</th><th>值</th></tr></thead><tbody>
+<tr><td>引脚</td><td><code>PC13</code> → <code>GPIO_Output</code>，标签 <code>LED</code></td></tr>
+<tr><td>输出模式</td><td>推挽输出（Push Pull），无上下拉</td></tr>
+<tr><td>速度</td><td>Low</td></tr>
+</tbody></table>
+
+<h3>2.2 代码（<code>Tasks/src/Tasks.cpp</code> 的 <code>TasksInit()</code>）</h3>
+
+<pre><code>
+void TasksInit(void)
+{
+    /* 第 1 题：把 PC13 拉低 —— 低电平点亮板载 LED */
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+}
+</code></pre>
+
+<ul>
+<li><code>LED_GPIO_Port</code> / <code>LED_Pin</code> 是 CubeMX 根据标签 <code>LED</code> 自动生成的宏（分别等于 <code>GPIOC</code> 和 <code>GPIO_PIN_13</code>）；</li>
+<li><code>GPIO_PIN_RESET</code> 表示<strong>输出低电平</strong>（0 V）。</li>
+</ul>
+
+<h3>2.3 为什么"低电平"反而点亮</h3>
+
+<p>板载 LED 的接法是：<strong>3.3 V → 限流电阻 → LED → PC13</strong>。</p>
+<p>所以 PC13 输出<strong>低电平</strong>时，电流从 3.3 V 经电阻、LED 流进 PC13，形成回路 → <strong>灯亮</strong>；输出高电平时两端都是 3.3 V，没有电流 → 灯灭。这叫"<strong>低电平有效</strong>（低有效）"。</p>
+
+<h3>2.4 现象</h3>
+
+<p>板载蓝灯<strong>常亮</strong>（对比：出厂程序是闪烁的）→ <strong>见图①</strong>。</p>
+
+<blockquote>补充：这一题按要求<strong>还没有喂狗</strong>，所以芯片会每约 2 秒被 IWDG 复位一次。复位瞬间 LED 会短暂熄灭再重新点亮，因为时间极短（几毫秒），肉眼几乎看不出来 —— 这是预期现象，不是故障。</blockquote>
+
+<hr>
+
+<h2>3. 第 2 题：TIM 更新中断，周期 1 ms</h2>
+
+<h3>3.1 关键：1 ms 是算出来的（定时器时钟从哪来）</h3>
+
+<p><strong>第一步：系统时钟 72 MHz 是怎么来的</strong></p>
+
+<table><thead><tr><th>环节</th><th>设置</th><th>结果</th></tr></thead><tbody>
+<tr><td>外部晶振 HSE</td><td>板上 8 MHz 晶振</td><td>8 MHz</td></tr>
+<tr><td>PLL</td><td>倍频 ×9</td><td><strong>SYSCLK = 8 × 9 = 72 MHz</strong></td></tr>
+<tr><td>AHB 预分频</td><td>÷1</td><td>HCLK = 72 MHz</td></tr>
+<tr><td>APB1 预分频</td><td>÷2</td><td>PCLK1 = 36 MHz</td></tr>
+<tr><td>APB2 预分频</td><td>÷1</td><td>PCLK2 = 72 MHz</td></tr>
+</tbody></table>
+
+<p><strong>第二步：定时器时钟为什么是 72 MHz 而不是 36 MHz</strong></p>
+
+<p>这是最容易算错的一步：STM32 规定 —— <strong>当 APB 预分频系数不为 1 时，挂在它下面的定时器时钟会自动 ×2</strong>。</p>
+<p>所以：<code>定时器时钟 = PCLK1 × 2 = 36 × 2 = 72 MHz</code>。</p>
+
+<p>（这一步在 CubeMX 里也能直接看到：时钟树页面的 <code>APB1 Timer clocks</code> 显示 <code>72 MHz</code>，<code>.ioc</code> 文件里是 <code>RCC.APB1TimFreq_Value=72000000</code>。）</p>
+
+<p><strong>第三步：用 PSC / ARR 凑出 1 ms</strong></p>
+
+<p>定时器更新频率公式：</p>
+
+<pre><code>
+f_update = 定时器时钟 / ((PSC + 1) × (ARR + 1))
+</code></pre>
+
+<p>代入我配置的值 <code>PSC = 71</code>、<code>ARR = 999</code>：</p>
+
+<pre><code>
+计数器时钟 = 72 MHz / (71 + 1)  = 1 MHz      ← 计数器每 1 µs 加 1
+f_update   = 1 MHz  / (999 + 1) = 1 kHz      ← 每 1000 个计数溢出一次
+T_update   = 1 / 1 kHz          = 1 ms       ✅
+</code></pre>
+
+<p>所以：<strong>每 1 ms 产生一次更新中断</strong>，中断里让 <code>tick</code> 加一，<code>tick</code> 就成了一只"毫秒表"。</p>
+
+<h3>3.2 代码</h3>
+
+<p><strong>（1）启动定时器</strong>（<code>TasksInit()</code> 里）</p>
+
+<pre><code>
+    HAL_TIM_Base_Start_IT(&amp;htim2);   /* 启动 TIM2 的更新中断 */
+</code></pre>
+
+<p>为什么必须自己写这一行：CubeMX 生成的 <code>MX_TIM2_Init()</code> 只做了<strong>配置</strong>（设置 PSC/ARR、把中断向量挂进 NVIC），<strong>并没有启动计数</strong>。</p>
+
+<blockquote>类比：水管接好了（配置完成），但总阀门没开（没启动）→ 一滴水都不会流。</blockquote>
+
+<p><strong>（2）中断回调</strong>（<code>Tasks.cpp</code>）</p>
+
+<pre><code>
+extern &quot;C&quot; void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim-&gt;Instance == TIM2)          /* 确认这次中断来自 TIM2 */
+    {
+        tick++;                           /* 每 1 ms 加 1 */
+        HAL_IWDG_Refresh(&amp;hiwdg);         /* 喂狗（第 3 题会删掉这行） */
+    }
+}
+</code></pre>
+
+<p><strong>逐点解释</strong>：</p>
+
+<table><thead><tr><th>写法</th><th>为什么必须这样</th></tr></thead><tbody>
+<tr><td><code>extern "C"</code></td><td>这是 C++ 文件，而 HAL 库是 C 写的。不加 <code>extern "C"</code>，C++ 会把函数名"改名"（mangling）成 <code>_Z...</code>，链接时 HAL 找不到这个名字 → <strong>编译能过，但中断永远不会进你的函数</strong>（最隐蔽的坑）</td></tr>
+<tr><td>函数名 <code>HAL_TIM_PeriodElapsedCallback</code></td><td>HAL 里已有一个同名的<strong>弱符号</strong>空实现；我写一个同名的强符号，链接时就会<strong>覆盖</strong>它，HAL 的中断处理流程就会调用到我的版本</td></tr>
+<tr><td><code>if (htim-&gt;Instance == TIM2)</code></td><td>这个回调是<strong>所有定时器共用</strong>的；判断 <code>Instance</code> 才知道这次是谁触发的（以后加别的定时器时不会互相干扰）</td></tr>
+<tr><td><code>tick++</code></td><td><code>tick</code> 定义为全局 <code>volatile uint32_t</code>（见下）</td></tr>
+<tr><td><code>HAL_IWDG_Refresh(&amp;hiwdg)</code></td><td>喂狗（第 2 题需要；第 3 题删掉）</td></tr>
+</tbody></table>
+
+<p><strong>（3）<code>tick</code> 的定义</strong></p>
+
+<pre><code>
+volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
+</code></pre>
+
+<p><code>volatile</code> 的作用：告诉编译器"这个变量可能被中断随时改掉，每次用都要真的去内存里读，不许缓存到寄存器里"。不加 <code>volatile</code>，编译器在优化时可能把它读进寄存器只读一次，导致调试器/主循环看到的值永远不变。</p>
+
+<h3>3.3 现象与验证</h3>
+
+<table><thead><tr><th>验证方式</th><th>结果</th></tr></thead><tbody>
+<tr><td>Ozone 后台采样 <code>tick</code>（<code>Data Sampling</code>，不停 CPU）</td><td><code>tick</code> 随时间<strong>单调增长</strong> → <strong>见图②</strong></td></tr>
+<tr><td>用<strong>独立时钟</strong>核对速率</td><td>主机计时 <strong>30.214 秒</strong>，<code>tick</code> 从 <strong>22952</strong> 涨到 <strong>53143</strong>（+30191）→ <strong>999.2 /秒</strong> ✅</td></tr>
+</tbody></table>
+
+<p><strong>为什么要用"独立时钟"再核一遍</strong>（这段是我这次作业最大的收获）：</p>
+<p>Ozone 的 <code>Data Sampling</code> 窗口带一列 <code>Time</code>。按它的时间列去算，会得到约 <strong>831/秒</strong>，和理论值 1000 差 17%。为了判断"到底是芯片慢了，还是软件的时间列不准"，我用<strong>电脑的时钟</strong>（与芯片完全独立的第二个时钟）直接读 <code>tick</code> 的起止值来算：</p>
+
+<table><thead><tr><th>次</th><th>主机时钟时刻</th><th><code>tick</code></th></tr></thead><tbody>
+<tr><td>A</td><td>06:28:13.661</td><td>22952</td></tr>
+<tr><td>B</td><td>06:28:43.875</td><td>53143</td></tr>
+</tbody></table>
+
+<p><code>30191 ÷ 30.214 = 999.2 /秒</code> → <strong>芯片侧的 1 ms 是准的</strong>，偏差来自 Ozone 采样窗口自己的时间列。</p>
+<p><strong>经验</strong>：任何一个时钟，在被第二个独立时钟验证之前都不能全信；交叉验证才能定位到底是谁不准。</p>
+
+<hr>
+
+<h2>4. 第 3 题：看门狗（IWDG）</h2>
+
+<h3>4.1 2 秒是怎么来的</h3>
+
+<p>IWDG 的时钟是芯片内部的 <strong>LSI</strong>（低速内部 RC 振荡器），STM32F103 手册给的典型值是 <strong>40 kHz</strong>（C 板 / A 板是 32 kHz）。</p>
+
+<table><thead><tr><th>环节</th><th>设置</th><th>结果</th></tr></thead><tbody>
+<tr><td>LSI</td><td>40 kHz（典型值）</td><td>40 000 Hz</td></tr>
+<tr><td>IWDG 预分频</td><td>64</td><td>40000 / 64 = <strong>625 Hz</strong></td></tr>
+<tr><td>Reload</td><td>1249</td><td>从 1249 倒数到 0，共 <strong>1250</strong> 个计数</td></tr>
+</tbody></table>
+
+<pre><code>
+超时时间 = 1250 / 625 = 2.000 秒     ✅ 明显长于 1 ms 的中断周期
+</code></pre>
+
+<blockquote>注意：LSI 是内部 RC 振荡器，精度较差（可能偏差几成），所以实测超时通常在 1.5~2.5 秒之间，这是正常的；题目要求的"约 2 秒"指的是按手册典型值算出来的 2.000 秒。</blockquote>
+
+<h3>4.2 改动（只删一行）</h3>
+
+<pre><code>
+        tick++;                           /* 不动 */
+        // HAL_IWDG_Refresh(&amp;hiwdg);      /* 第 3 题：去掉喂狗 */
+</code></pre>
+
+<p>其余代码（PSC/ARR、IWDG 的分频与 Reload、<code>tick</code> 的逻辑）<strong>全部不动</strong>。</p>
+
+<h3>4.3 现象与验证</h3>
+
+<ul>
+<li>预期：<code>tick</code> 从 0 涨到约 <strong>2000</strong>（= 约 2 秒 × 1000/秒）→ 看门狗超时 → 芯片复位 → <code>tick</code> 归零 → 再涨……</li>
+<li><strong>实测</strong>（截图里的原始数据）：<code>tick</code> 涨到 <strong>2048</strong> 时归零，随后从 0 重新开始计数 —— 与"约 2 秒 × 1000/秒"吻合 ✅</li>
+<li><strong>见图③</strong>（Ozone 连续采样截图，能看到涨上去再归零）。</li>
+</ul>
+
+<p><strong>观察时的坑（老师也特别提醒过）</strong>：CPU 被暂停（打断点 / <code>Halt</code>）时，<strong>IWDG 仍在继续计数</strong> —— 因为它由独立的 LSI 驱动，不依赖 CPU。所以一旦暂停超过约 2 秒，芯片就被复位、调试器直接掉线。因此第 3 题<strong>必须用"不暂停 CPU"的方式观察</strong>（我用的是 Ozone 的 <code>Data Sampling</code>，它在后台读内存，不停 CPU）。</p>
+
+<h3>4.4 编译结果核对（确认喂狗真的被删掉了）</h3>
+
+<p>用 <code>arm-none-eabi-objdump</code> 反汇编最终固件，中断回调里已经<strong>没有</strong>对 <code>HAL_IWDG_Refresh</code> 的调用：</p>
+
+<pre><code>
+08001b1c &lt;HAL_TIM_PeriodElapsedCallback&gt;:
+ 8001b22:  str   r0, [r7, #4]
+ 8001b26:  ldr   r3, [r3, #0]                      @ htim-&gt;Instance
+ 8001b28:  cmp.w r3, #1073741824   @ 0x40000000    @ == TIM2 ?
+ 8001b2c:  bne.n 8001b38                           @ 不是就跳过
+ 8001b30:  ldr   r3, [r3]                          @ 读 tick
+ 8001b32:  adds  r3, #1                            @ tick + 1
+ 8001b36:  str   r3, [r2]                          @ 写回
+ 8001b40:  bx    lr                                @ 返回（没有 bl HAL_IWDG_Refresh）
+</code></pre>
+
+<hr>
+
+<h2>5. 过程中遇到的问题与解决（记录）</h2>
+
+<table><thead><tr><th>#</th><th>问题</th><th>原因</th><th>解决</th></tr></thead><tbody>
+<tr><td>1</td><td>J-Link 报 <code>Cannot connect to the probe/programmer</code></td><td>这只克隆 J-Link 在<strong>部分 USB 口</strong>上驱动绑定不正常</td><td>换到另一个 USB 口即可（认准能用的那个口，之后固定使用）</td></tr>
+<tr><td>2</td><td>刚开机后第一次连接必然失败</td><td>USB 设备/驱动还没就绪</td><td>开机后等约 10 秒再连</td></tr>
+<tr><td>3</td><td>烧录报 <code>Communication timed out</code> / <code>Failed to preserve target RAM</code> / <code>Target voltage too low (0.0 V)</code></td><td><strong>Ozone 还开着</strong>，两个程序同时抢同一只 J-Link</td><td>烧录前<strong>完全退出 Ozone</strong>（含托盘里的 <code>JLinkGUIServer</code>）。"电压 0 V"是通信被打断后的误报</td></tr>
+<tr><td>4</td><td>第 1 题烧录偶尔失败</td><td>这一题不喂狗，芯片每 2 秒复位一次；烧录耗时超过 2 秒就会被打断</td><td>重跑一次烧录脚本（通常第二次就过）；必要时先让上一次复位结束</td></tr>
+<tr><td>5</td><td>Ozone 的 <code>Watched Data</code> 在程序运行时数值不动</td><td>它是"停下读一次"的机制，运行时不刷新</td><td>要看"随时间变化"改用 <code>Data Sampling</code>（后台采样，不停 CPU）</td></tr>
+<tr><td>6</td><td>按 Data Sampling 的时间列算，速率只有 831/秒</td><td>Ozone 该窗口的时间戳比真实时间短约 18%（两种采样率下偏差一致）</td><td>用<strong>独立时钟</strong>（电脑计时）核对，得到 999.2/秒，确认芯片正确</td></tr>
+<tr><td>7</td><td><code>PC13</code> 的灯"不闪"，以为程序没跑</td><td>程序确实在跑（<code>tick</code> 在增长），只是题目要求的是<strong>常亮</strong>而非闪烁</td><td>用"红灯常亮=有电、蓝灯常亮=程序拉低 PC13"来区分两个灯的含义</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 对本次作业/培训的建议</h2>
+
+<ul>
+<li><strong>建议在题面里提示"克隆 J-Link 可能挑 USB 口"</strong>：这次卡了很久，现象是软件报 <code>Cannot connect to the probe/programmer</code>，但设备管理器里能看到设备、驱动也装好了。换一个 USB 口就好了 —— 这类"环境坑"如果能提前给一句话，能省很多时间。</li>
+<li><strong>建议明确"观察看门狗现象禁止暂停 CPU"的原因</strong>：题面已经提醒了，如果补一句"因为 IWDG 由独立的 LSI 驱动，CPU 停住它照数"，理解会更到位（我这次是靠推理和掉线才确认的）。</li>
+<li><strong>建议给一个 Ozone 的推荐版本与最小操作步骤</strong>（例如：用什么版本、看变量用哪个窗口）。Ozone 各版本菜单名不一样，<code>Watched Data</code> 又不支持运行时刷新，新手很容易以为"程序没跑"。</li>
+<li><strong>关于说明文档格式</strong>：题面没有规定格式，我提交的是 Markdown（也可导出 PDF）。如果老师有偏好（Word / PDF），下次可以直接按统一格式交。</li>
+</ul>
+
+<hr>
+
+<h2>附录（所有图片只在此处出现）</h2>
+
+<h3>图① 第 1 题：GPIO 低电平点亮板载 LED</h3>
+
+<p>（照片：板载蓝灯常亮）</p>
+
+<p><img src="附录图/Graph1_GPIO_LIght_on.jpg" alt="图1"></p>
+
+<h3>图② 第 2 题：<code>tick</code> 随时间增长（Ozone Data Sampling）</h3>
+
+<p>（Ozone 后台采样，程序处于<strong>运行</strong>状态；<code>Time</code> 列仅供参考，速率的准确核对见 3.3 节的独立时钟测量）</p>
+
+<p><img src="附录图/Graph2_TimeLine.png" alt="图2"></p>
+
+<h3>图③ 第 3 题：<code>tick</code> 涨到约 2000 后归零（看门狗复位）</h3>
+
+<p>（Ozone <code>Data Sampling</code> 连续采样；每约 2 秒出现一次"涨到约 2000 → 归零"的锯齿）</p>
+
+<p><img src="附录图/Watch_dog.png" alt="图3"></p>
+
+<hr>
+
+<h2>附：如何复现（构建与烧录）</h2>
+
+<pre><code>
+# 1. 编译（VS Code 里选 Debug 构建类型，或命令行）
+cd D:\ForTest\HW1
+cmake --build --preset Debug
+
+# 2. 烧录（Ozone 必须先完全退出，否则会抢 J-Link）
+&amp; &#x27;C:\Program Files\SEGGER\JLink_V980\JLink.exe&#x27; -NoGui 1 -CommanderScript &#x27;D:\ForTest\HW1\tools\jlink_flash.jlink&#x27;
+
+# 3. 观察：用 Ozone 打开 build\HW1.elf
+</code></pre>
+
+<table><thead><tr><th>外设配置一览</th><th>值</th></tr></thead><tbody>
+<tr><td>SYSCLK</td><td>72 MHz（HSE 8 MHz ×9）</td></tr>
+<tr><td>TIM2</td><td>PSC = 71，ARR = 999 → 更新中断 1 kHz（1 ms）</td></tr>
+<tr><td>IWDG</td><td>预分频 64，Reload 1249 → 超时 2.000 s（LSI 40 kHz）</td></tr>
+<tr><td>LED</td><td>PC13，推挽输出，低电平点亮</td></tr>
+</tbody></table>
+
+</body></html>
