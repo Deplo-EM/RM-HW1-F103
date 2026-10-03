@@ -186,16 +186,15 @@ volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
 <tr><td>用<strong>独立时钟</strong>核对速率</td><td>主机计时 <strong>30.214 秒</strong>，<code>tick</code> 从 <strong>22952</strong> 涨到 <strong>53143</strong>（+30191）→ <strong>999.2 /秒</strong> ✅</td></tr>
 </tbody></table>
 
-<p><strong>为什么要用"独立时钟"再核一遍</strong>（这段是我这次作业最大的收获）：</p>
-<p>Ozone 的 <code>Data Sampling</code> 窗口带一列 <code>Time</code>。按它的时间列去算，会得到约 <strong>831/秒</strong>，和理论值 1000 差 17%。为了判断"到底是芯片慢了，还是软件的时间列不准"，我用<strong>电脑的时钟</strong>（与芯片完全独立的第二个时钟）直接读 <code>tick</code> 的起止值来算：</p>
+<p><strong>用"独立时钟"再核对一遍</strong>：为确认芯片的 1 ms 真的准（而不是只有调试软件显示得准），另外用<strong>电脑的时钟</strong>（与芯片完全独立的第二个时钟）直接读取 <code>tick</code> 的起止值来算：</p>
 
-<table><thead><tr><th>次</th><th>主机时钟时刻</th><th><code>tick</code></th></tr></thead><tbody>
+<table><thead><tr><th>次</th><th>电脑时钟时刻</th><th><code>tick</code></th></tr></thead><tbody>
 <tr><td>A</td><td>06:28:13.661</td><td>22952</td></tr>
 <tr><td>B</td><td>06:28:43.875</td><td>53143</td></tr>
 </tbody></table>
 
-<p><code>30191 ÷ 30.214 = 999.2 /秒</code> → <strong>芯片侧的 1 ms 是准的</strong>，偏差来自 Ozone 采样窗口自己的时间列。</p>
-<p><strong>经验</strong>：任何一个时钟，在被第二个独立时钟验证之前都不能全信；交叉验证才能定位到底是谁不准。</p>
+<p><code>30191 ÷ 30.214 = 999.2 /秒</code> → 与理论值 1000/秒 一致 ✅</p>
+<p>（速率的计算只用电脑时钟，不依赖调试软件显示的时间。）</p>
 
 <hr>
 
@@ -234,7 +233,7 @@ volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
 <li><strong>见图③</strong>（Ozone 连续采样截图，能看到涨上去再归零）。</li>
 </ul>
 
-<p><strong>观察时的坑（老师也特别提醒过）</strong>：CPU 被暂停（打断点 / <code>Halt</code>）时，<strong>IWDG 仍在继续计数</strong> —— 因为它由独立的 LSI 驱动，不依赖 CPU。所以一旦暂停超过约 2 秒，芯片就被复位、调试器直接掉线。因此第 3 题<strong>必须用"不暂停 CPU"的方式观察</strong>（我用的是 Ozone 的 <code>Data Sampling</code>，它在后台读内存，不停 CPU）。</p>
+<p><strong>观察时的注意事项（老师也特别提醒过）</strong>：CPU 被暂停（打断点 / <code>Halt</code>）时，<strong>IWDG 仍在继续计数</strong> —— 因为它由独立的 LSI 驱动，不依赖 CPU。所以一旦暂停超过约 2 秒，芯片就被复位、调试器直接掉线。因此第 3 题<strong>必须用"不暂停 CPU"的方式观察</strong>（本次用的是后台采样，它在读内存的同时让 CPU 继续运行）。</p>
 
 <h3>4.4 编译结果核对（确认喂狗真的被删掉了）</h3>
 
@@ -254,27 +253,13 @@ volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
 
 <hr>
 
-<h2>5. 过程中遇到的问题与解决（记录）</h2>
-
-<table><thead><tr><th>#</th><th>问题</th><th>原因</th><th>解决</th></tr></thead><tbody>
-<tr><td>1</td><td>J-Link 报 <code>Cannot connect to the probe/programmer</code></td><td>这只克隆 J-Link 在<strong>部分 USB 口</strong>上驱动绑定不正常</td><td>换到另一个 USB 口即可（认准能用的那个口，之后固定使用）</td></tr>
-<tr><td>2</td><td>刚开机后第一次连接必然失败</td><td>USB 设备/驱动还没就绪</td><td>开机后等约 10 秒再连</td></tr>
-<tr><td>3</td><td>烧录报 <code>Communication timed out</code> / <code>Failed to preserve target RAM</code> / <code>Target voltage too low (0.0 V)</code></td><td><strong>Ozone 还开着</strong>，两个程序同时抢同一只 J-Link</td><td>烧录前<strong>完全退出 Ozone</strong>（含托盘里的 <code>JLinkGUIServer</code>）。"电压 0 V"是通信被打断后的误报</td></tr>
-<tr><td>4</td><td>第 1 题烧录偶尔失败</td><td>这一题不喂狗，芯片每 2 秒复位一次；烧录耗时超过 2 秒就会被打断</td><td>重跑一次烧录脚本（通常第二次就过）；必要时先让上一次复位结束</td></tr>
-<tr><td>5</td><td>Ozone 的 <code>Watched Data</code> 在程序运行时数值不动</td><td>它是"停下读一次"的机制，运行时不刷新</td><td>要看"随时间变化"改用 <code>Data Sampling</code>（后台采样，不停 CPU）</td></tr>
-<tr><td>6</td><td>按 Data Sampling 的时间列算，速率只有 831/秒</td><td>Ozone 该窗口的时间戳比真实时间短约 18%（两种采样率下偏差一致）</td><td>用<strong>独立时钟</strong>（电脑计时）核对，得到 999.2/秒，确认芯片正确</td></tr>
-<tr><td>7</td><td><code>PC13</code> 的灯"不闪"，以为程序没跑</td><td>程序确实在跑（<code>tick</code> 在增长），只是题目要求的是<strong>常亮</strong>而非闪烁</td><td>用"红灯常亮=有电、蓝灯常亮=程序拉低 PC13"来区分两个灯的含义</td></tr>
-</tbody></table>
-
-<hr>
-
-<h2>6. 对本次作业/培训的建议</h2>
+<h2>5. 对本次作业/培训的建议</h2>
 
 <ul>
-<li><strong>建议在题面里提示"克隆 J-Link 可能挑 USB 口"</strong>：这次卡了很久，现象是软件报 <code>Cannot connect to the probe/programmer</code>，但设备管理器里能看到设备、驱动也装好了。换一个 USB 口就好了 —— 这类"环境坑"如果能提前给一句话，能省很多时间。</li>
-<li><strong>建议明确"观察看门狗现象禁止暂停 CPU"的原因</strong>：题面已经提醒了，如果补一句"因为 IWDG 由独立的 LSI 驱动，CPU 停住它照数"，理解会更到位（我这次是靠推理和掉线才确认的）。</li>
-<li><strong>建议给一个 Ozone 的推荐版本与最小操作步骤</strong>（例如：用什么版本、看变量用哪个窗口）。Ozone 各版本菜单名不一样，<code>Watched Data</code> 又不支持运行时刷新，新手很容易以为"程序没跑"。</li>
-<li><strong>关于说明文档格式</strong>：题面没有规定格式，我提交的是 Markdown（也可导出 PDF）。如果老师有偏好（Word / PDF），下次可以直接按统一格式交。</li>
+<li><strong>建议在题面里提示"克隆 J-Link 可能挑 USB 口"</strong>：现象是调试软件报 <code>Cannot connect to the probe/programmer</code>，但设备管理器里能看到设备、驱动也正常，换一个 USB 口就好了。这类环境问题提前给一句提示能省很多时间。</li>
+<li><strong>建议补充"禁止暂停 CPU"的原因</strong>：题面已提醒观察看门狗时不要让程序停下，如果补一句"因为 IWDG 由芯片内部的 LSI 驱动，CPU 停住它照样计数"，理解会更到位。</li>
+<li><strong>建议给出 Ozone 的推荐版本与最小操作步骤</strong>（用哪个版本、在哪个窗口看变量）。Ozone 各版本的菜单名称不同，且变量窗口在程序运行时不会自动刷新，新手容易误判成"程序没跑"。</li>
+<li><strong>关于说明文档格式</strong>：题面未规定格式，本次提交的是 PDF。如果老师有统一偏好，建议在题面里写明。</li>
 </ul>
 
 <hr>
@@ -289,7 +274,7 @@ volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
 
 <h3>图② 第 2 题：<code>tick</code> 随时间增长（Ozone Data Sampling）</h3>
 
-<p>（Ozone 后台采样，程序处于<strong>运行</strong>状态；<code>Time</code> 列仅供参考，速率的准确核对见 3.3 节的独立时钟测量）</p>
+<p>（Ozone 后台采样，程序处于<strong>运行</strong>状态；速率的核对见 3.3 节）</p>
 
 <p><img src="附录图/Graph2_TimeLine.png" alt="图2"></p>
 
@@ -301,17 +286,11 @@ volatile uint32_t tick = 0;   /* 每 1 ms 自增 1 的毫秒计数器 */
 
 <hr>
 
-<h2>附：如何复现（构建与烧录）</h2>
+<h2>附：构建方式与配置一览</h2>
 
 <pre><code>
-# 1. 编译（VS Code 里选 Debug 构建类型，或命令行）
-cd D:\ForTest\HW1
-cmake --build --preset Debug
-
-# 2. 烧录（Ozone 必须先完全退出，否则会抢 J-Link）
-&amp; &#x27;C:\Program Files\SEGGER\JLink_V980\JLink.exe&#x27; -NoGui 1 -CommanderScript &#x27;D:\ForTest\HW1\tools\jlink_flash.jlink&#x27;
-
-# 3. 观察：用 Ozone 打开 build\HW1.elf
+# 在工程根目录（VS Code 里选 Debug 构建类型，或命令行）
+cmake --build --preset Debug        # 产物：build/HW1.elf
 </code></pre>
 
 <table><thead><tr><th>外设配置一览</th><th>值</th></tr></thead><tbody>
