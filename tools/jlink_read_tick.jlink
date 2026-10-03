@@ -1,0 +1,10 @@
+// 读一次 tick 变量（0x20000080），读完让 CPU 继续跑。
+// 用途：配合主机时钟测"真实的每秒增量"，不依赖 Ozone 的时间列。
+si SWD
+speed 1000
+device STM32F103C8
+connect
+halt
+mem32 0x20000080 1
+go
+q
